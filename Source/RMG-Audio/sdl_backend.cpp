@@ -222,7 +222,10 @@ void sdl_push_samples(struct sdl_backend* sdl_backend, const void* src, size_t s
     if (size > sdl_backend->buffers_size)
     {
         sdl_backend->primary_buffer = realloc(sdl_backend->primary_buffer, size);
-        sdl_backend->resample_buffer = realloc(sdl_backend->resample_buffer, size);
+        // the resample buffer can be larger than the primary buffer
+        // when the emulator runs slower than normal and we need
+        // to repeat samples to keep the audio pitch normal
+        sdl_backend->resample_buffer = realloc(sdl_backend->resample_buffer, size * 10);
 
         sdl_backend->buffers_size = size;
     }
@@ -251,14 +254,44 @@ void sdl_push_samples(struct sdl_backend* sdl_backend, const void* src, size_t s
     }
 
     /* resample audio */
-    sdl_backend->iresampler->resample(sdl_backend->resampler, 
-                                        sdl_backend->primary_buffer, size, 
-                                        sdl_backend->frequency, 
-                                        sdl_backend->resample_buffer, size,
-                                        sdl_backend->frequency);
+    size_t outputSize = size;
+
+    if (sdl_backend->speed_factor != 100)
+    {
+        // when the emulator runs faster or slower than normal,
+        // drop or repeat samples so that the audio pitch stays normal
+        // and the SDL audio buffer stays balanced, which avoids
+        // the crackling/pops that occur otherwise
+        const size_t inputSamples = size / 4;
+        size_t outputSamples = inputSamples * 100 / sdl_backend->speed_factor;
+
+        // make sure we don't write past the resample buffer
+        const size_t maxOutputSamples = sdl_backend->buffers_size * 10 / 4;
+        if (outputSamples > maxOutputSamples)
+        {
+            outputSamples = maxOutputSamples;
+        }
+
+        for (size_t i = 0; i < outputSamples; i++)
+        {
+            const size_t srcIndex = i * sdl_backend->speed_factor / 100;
+            ((uint32_t*)sdl_backend->resample_buffer)[i] =
+                ((const uint32_t*)sdl_backend->primary_buffer)[srcIndex];
+        }
+
+        outputSize = outputSamples * 4;
+    }
+    else
+    {
+        sdl_backend->iresampler->resample(sdl_backend->resampler,
+                                          sdl_backend->primary_buffer, size,
+                                          sdl_backend->frequency,
+                                          sdl_backend->resample_buffer, size,
+                                          sdl_backend->frequency);
+    }
 
     /* push audio buffer to SDL */
-    SDL_PutAudioStreamData(sdl_backend->stream, sdl_backend->resample_buffer, size);
+    SDL_PutAudioStreamData(sdl_backend->stream, sdl_backend->resample_buffer, outputSize);
 }
 
 void sdl_set_speed_factor(struct sdl_backend* sdl_backend, unsigned int speed_factor)
