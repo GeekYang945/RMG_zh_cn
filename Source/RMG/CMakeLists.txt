@@ -182,11 +182,20 @@ qt_add_translations(RMG
 # translations which lupdate doesn't extract from RMG's sources,
 # such as Qt's standard dialog buttons and strings of GLideN64's
 # configuration dialog which are missing in GLideN64's own translation
-qt_add_lrelease(RMG
+#
+# a dedicated target is used because qt_add_lrelease() derives the name of its
+# custom target from its first argument; passing RMG again would collide with
+# the *_lrelease target created by qt_add_translations() on some Qt versions
+add_custom_target(rmg_extra_translations)
+
+qt_add_lrelease(rmg_extra_translations
     TS_FILES
         Translations/rmg_extra_zh_CN.ts
     QM_FILES_OUTPUT_VARIABLE RMG_EXTRA_QM_FILES
 )
+
+# make sure the extra translations are generated before they get embedded
+add_dependencies(RMG rmg_extra_translations)
 
 qt_add_resources(RMG "extra_translations"
     PREFIX "/i18n"
