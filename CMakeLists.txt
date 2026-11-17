@@ -102,6 +102,29 @@ add_subdirectory(Source/RMG)
 add_subdirectory(Source/RMG-Audio)
 add_subdirectory(Source/RMG-Input)
 add_subdirectory(Source/RMG-Input-GCA)
+
+# make sure that building RMG also builds all of its
+# runtime dependencies, the dependencies are copied next
+# to RMG.exe by the post-build step in Source/RMG/CMakeLists.txt
+add_dependencies(RMG
+    RMG-Core
+    RMG-Audio
+    RMG-Input
+    RMG-Input-GCA
+    mupen64plus-core
+    mupen64plus-rsp-cxd4
+    mupen64plus-rsp-hle
+    mupen64plus-rsp-parallel
+    mupen64plus-input-raphnetraw
+    mupen64plus-video-GLideN64
+    mupen64plus-video-parallel
+    mupen64plus-video-softrdp
+    SDL_GameControllerDB
+)
+if (USE_ANGRYLION)
+    add_dependencies(RMG mupen64plus-video-angrylion-plus)
+endif()
+
 install(TARGETS RMG-Core
     DESTINATION ${SYSTEM_LIB_INSTALL_PATH}
 )

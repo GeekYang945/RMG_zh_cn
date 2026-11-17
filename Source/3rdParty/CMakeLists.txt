@@ -5,6 +5,53 @@ include(ExternalProject)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
+# When building from an IDE (e.g. CLion with the Ninja generator) using an
+# MSYS2 toolchain, the build isn't running inside an MSYS2 shell. The
+# make-based 3rdParty projects then lack 'make', 'uname' and the MSYSTEM
+# environment variable, and CMake can't find system libraries (zlib,
+# freetype, Qt, ...) because the MSYS2 prefix isn't searched by default.
+# Detect the MSYS2 installation from the compiler path and set all of that
+# up ourselves, so that building works regardless of the environment.
+set(RMG_MSYS2_PREFIX "")
+set(RMG_MSYS2_ROOT "")
+set(RMG_MSYS2_MAKE "")
+if (WIN32 AND NOT "${CMAKE_GENERATOR}" STREQUAL "Unix Makefiles" AND NOT "${CMAKE_GENERATOR}" STREQUAL "MSYS Makefiles")
+    get_filename_component(RMG_MSYS2_BIN "${CMAKE_C_COMPILER}" DIRECTORY)
+    get_filename_component(RMG_MSYS2_PREFIX "${RMG_MSYS2_BIN}/.." ABSOLUTE)
+    get_filename_component(RMG_MSYS2_ROOT "${RMG_MSYS2_PREFIX}/.." ABSOLUTE)
+    if (EXISTS "${RMG_MSYS2_ROOT}/usr/bin/make.exe")
+        get_filename_component(RMG_MSYS2_PREFIX_NAME "${RMG_MSYS2_PREFIX}" NAME)
+        if (RMG_MSYS2_PREFIX_NAME STREQUAL "clang64")
+            set(RMG_MSYS2_MSYSTEM "CLANG64")
+        elseif (RMG_MSYS2_PREFIX_NAME STREQUAL "mingw64")
+            set(RMG_MSYS2_MSYSTEM "MINGW64")
+        else()
+            set(RMG_MSYS2_MSYSTEM "UCRT64")
+        endif()
+
+        # Generate a small wrapper that puts 'make', 'uname' and 'sh' on
+        # PATH and sets MSYSTEM, then invokes make. A wrapper script is used
+        # instead of 'cmake -E env' because the semicolons in PATH get
+        # mangled when the command travels through cmd.exe.
+        file(TO_NATIVE_PATH "${RMG_MSYS2_PREFIX}/bin"         RMG_MSYS2_NATIVE_BIN)
+        file(TO_NATIVE_PATH "${RMG_MSYS2_ROOT}/usr/bin"       RMG_MSYS2_NATIVE_USRBIN)
+        file(TO_NATIVE_PATH "${RMG_MSYS2_ROOT}/usr/bin/make.exe" RMG_MSYS2_NATIVE_MAKE)
+        set(RMG_MSYS2_MAKE "${CMAKE_CURRENT_BINARY_DIR}/rmg_msys2_make.bat")
+        file(WRITE "${RMG_MSYS2_MAKE}"
+            "@echo off\r\n"
+            "setlocal\r\n"
+            "set \"MSYSTEM=${RMG_MSYS2_MSYSTEM}\"\r\n"
+            "set \"PATH=${RMG_MSYS2_NATIVE_BIN};${RMG_MSYS2_NATIVE_USRBIN};%PATH%\"\r\n"
+            "\"${RMG_MSYS2_NATIVE_MAKE}\" %*\r\n"
+            "exit /b %ERRORLEVEL%\r\n")
+        file(TO_NATIVE_PATH "${RMG_MSYS2_MAKE}" RMG_MSYS2_MAKE)
+        message(STATUS "Using MSYS2 toolchain: ${RMG_MSYS2_PREFIX} (${RMG_MSYS2_MSYSTEM})")
+    else()
+        set(RMG_MSYS2_PREFIX "")
+        set(RMG_MSYS2_ROOT "")
+    endif()
+endif()
+
 set(M64P_CORE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/mupen64plus-core)
 if(WIN32)
     set(SO_EXT "dll")
@@ -19,6 +66,9 @@ endif(WIN32)
 set(BASE_CMAKE_CONFIGURE_ARGS -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} 
     -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER} -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
     -DCMAKE_C_FLAGS=${CMAKE_C_FLAGS} -DCMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS})
+if (RMG_MSYS2_PREFIX)
+    list(APPEND BASE_CMAKE_CONFIGURE_ARGS "-DCMAKE_PREFIX_PATH=${RMG_MSYS2_PREFIX}")
+endif()
 if (USE_CCACHE)
     set(CMAKE_CONFIGURE_ARGS ${BASE_CMAKE_CONFIGURE_ARGS} -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_C_COMPILER_LAUNCHER=ccache)
     set(MAKE_CC_COMPILER "ccache ${CMAKE_C_COMPILER}")
@@ -33,6 +83,8 @@ endif(USE_CCACHE)
 if ("${CMAKE_GENERATOR}" STREQUAL "Unix Makefiles" OR
     "${CMAKE_GENERATOR}" STREQUAL "MSYS Makefiles")
     set(MAKE_CMD "$(MAKE)")
+elseif (RMG_MSYS2_MAKE)
+    set(MAKE_CMD "${RMG_MSYS2_MAKE}")
 else()
     set(MAKE_CMD "make")
 endif()

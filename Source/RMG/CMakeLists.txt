@@ -6,6 +6,7 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
 find_package(Qt6 COMPONENTS Gui Widgets Core REQUIRED)
+find_package(Qt6 COMPONENTS LinguistTools REQUIRED)
 
 if (NOT WIN32)
     find_package(Qt6 REQUIRED COMPONENTS DBus)
@@ -69,6 +70,7 @@ set(RMG_SOURCES
     UserInterface/EventFilter.cpp
     UserInterface/UIResources.rc
     UserInterface/UIResources.qrc
+    Translations/Translations.qrc
     Thread/RomSearcherThread.cpp
     Thread/EmulationThread.cpp
     Utilities/QtKeyToSdl3Key.cpp
@@ -156,4 +158,99 @@ endif(KCA_DRAG_DROP)
 if (NETPLAY)
     target_link_libraries(RMG Qt6::WebSockets)
 endif(NETPLAY)
+
+# translations for RMG itself,
+# including the configuration dialogs of the
+# input and audio plugins since those are
+# shown from within RMG
+file(GLOB_RECURSE RMG_EXTRA_TRANSLATION_SOURCES
+    "${CMAKE_SOURCE_DIR}/Source/RMG-Input/UserInterface/*.cpp"
+    "${CMAKE_SOURCE_DIR}/Source/RMG-Input/UserInterface/*.ui"
+    "${CMAKE_SOURCE_DIR}/Source/RMG-Input-GCA/UserInterface/*.cpp"
+    "${CMAKE_SOURCE_DIR}/Source/RMG-Input-GCA/UserInterface/*.ui"
+    "${CMAKE_SOURCE_DIR}/Source/RMG-Audio/UserInterface/*.cpp"
+    "${CMAKE_SOURCE_DIR}/Source/RMG-Audio/UserInterface/*.ui"
+)
+
+qt_add_translations(RMG
+    TS_FILES
+        Translations/rmg_zh_CN.ts
+    RESOURCE_PREFIX "/i18n"
+    SOURCES ${RMG_EXTRA_TRANSLATION_SOURCES}
+)
+
+# translations which lupdate doesn't extract from RMG's sources,
+# such as Qt's standard dialog buttons and strings of GLideN64's
+# configuration dialog which are missing in GLideN64's own translation
+qt_add_lrelease(RMG
+    TS_FILES
+        Translations/rmg_extra_zh_CN.ts
+    QM_FILES_OUTPUT_VARIABLE RMG_EXTRA_QM_FILES
+)
+
+qt_add_resources(RMG "extra_translations"
+    PREFIX "/i18n"
+    BASE "${CMAKE_CURRENT_BINARY_DIR}"
+    FILES ${RMG_EXTRA_QM_FILES}
+)
+
+# assemble a runnable portable layout next to RMG.exe,
+# so that RMG can be run/debugged directly from an IDE
+# (i.e CLion) without having to install it first
+set(RMG_RUN_DIR "$<TARGET_FILE_DIR:RMG>")
+
+add_custom_command(TARGET RMG POST_BUILD
+    # create the directory structure
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${RMG_RUN_DIR}/Core"
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${RMG_RUN_DIR}/Plugin/Audio"
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${RMG_RUN_DIR}/Plugin/GFX"
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${RMG_RUN_DIR}/Plugin/Input"
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${RMG_RUN_DIR}/Plugin/RSP"
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${RMG_RUN_DIR}/Data"
+
+    # core library (linked by RMG)
+    COMMAND ${CMAKE_COMMAND} -E copy "$<TARGET_FILE:RMG-Core>" "${RMG_RUN_DIR}/"
+
+    # mupen64plus core
+    COMMAND ${CMAKE_COMMAND} -E copy "${MUPEN64PLUSCORE_LIB}" "${RMG_RUN_DIR}/Core/"
+
+    # plugins
+    COMMAND ${CMAKE_COMMAND} -E copy "$<TARGET_FILE:RMG-Audio>" "${RMG_RUN_DIR}/Plugin/Audio/"
+    COMMAND ${CMAKE_COMMAND} -E copy "$<TARGET_FILE:RMG-Input>" "${RMG_RUN_DIR}/Plugin/Input/"
+    COMMAND ${CMAKE_COMMAND} -E copy "$<TARGET_FILE:RMG-Input-GCA>" "${RMG_RUN_DIR}/Plugin/Input/"
+    COMMAND ${CMAKE_COMMAND} -E copy "${MUPEN64PLUS_PLUGIN_INPUT_RAPHNET}" "${RMG_RUN_DIR}/Plugin/Input/"
+    COMMAND ${CMAKE_COMMAND} -E copy "${MUPEN64PLUS_PLUGIN_GFX_GLIDEN64}" "${RMG_RUN_DIR}/Plugin/GFX/"
+    COMMAND ${CMAKE_COMMAND} -E copy "${MUPEN64PLUS_PLUGIN_GFX_PARALLEL}" "${RMG_RUN_DIR}/Plugin/GFX/"
+    COMMAND ${CMAKE_COMMAND} -E copy "${MUPEN64PLUS_PLUGIN_GFX_SOFTRDP}" "${RMG_RUN_DIR}/Plugin/GFX/"
+    COMMAND ${CMAKE_COMMAND} -E copy "${MUPEN64PLUS_PLUGIN_RSP_CXD4}" "${RMG_RUN_DIR}/Plugin/RSP/"
+    COMMAND ${CMAKE_COMMAND} -E copy "${MUPEN64PLUS_PLUGIN_RSP_HLE}" "${RMG_RUN_DIR}/Plugin/RSP/"
+    COMMAND ${CMAKE_COMMAND} -E copy "${MUPEN64PLUS_PLUGIN_RSP_PARALLEL}" "${RMG_RUN_DIR}/Plugin/RSP/"
+
+    # data files
+    COMMAND ${CMAKE_COMMAND} -E copy "${MUPEN64PLUSCORE_INI}" "${RMG_RUN_DIR}/Data/"
+    COMMAND ${CMAKE_COMMAND} -E copy "${SDL_GAMECONTROLLERDB}" "${RMG_RUN_DIR}/Data/"
+    COMMAND ${CMAKE_COMMAND} -E copy "${CMAKE_SOURCE_DIR}/Data/InputProfileDB.json" "${RMG_RUN_DIR}/Data/"
+    COMMAND ${CMAKE_COMMAND} -E copy "${CMAKE_SOURCE_DIR}/Data/font.ttf" "${RMG_RUN_DIR}/Data/"
+    COMMAND ${CMAKE_COMMAND} -E copy "${MUPEN64PLUS_PLUGIN_GFX_GLIDEN64_DATA}" "${RMG_RUN_DIR}/Data/"
+
+    # cheats
+    COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_SOURCE_DIR}/Data/Cheats/Generated" "${RMG_RUN_DIR}/Data/Cheats"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_SOURCE_DIR}/Data/Cheats/Custom" "${RMG_RUN_DIR}/Data/Cheats"
+
+    # force portable mode, so that config & saves are stored next to the exe
+    COMMAND ${CMAKE_COMMAND} -E touch "${RMG_RUN_DIR}/portable.txt"
+)
+
+if (USE_ANGRYLION)
+    add_custom_command(TARGET RMG POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy "${MUPEN64PLUS_PLUGIN_GFX_ANGRYLION}" "${RMG_RUN_DIR}/Plugin/GFX/"
+    )
+endif()
+
+if (VRU)
+    add_custom_command(TARGET RMG POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy "${VOSK_API_LIBRARY}" "${RMG_RUN_DIR}/"
+        COMMAND ${CMAKE_COMMAND} -E copy "${VOSK_API_MODEL}" "${RMG_RUN_DIR}/Data/"
+    )
+endif()
 
