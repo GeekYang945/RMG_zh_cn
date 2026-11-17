@@ -38,6 +38,7 @@ jobs:
           sudo apt-get -y upgrade
           sudo apt-get -y install cmake libusb-1.0-0-dev libhidapi-dev libsamplerate0-dev libspeex-dev libminizip-dev libfreetype6-dev \
             libgl1-mesa-dev libglu1-mesa-dev pkg-config zlib1g-dev binutils-dev libspeexdsp-dev qt6-base-dev libqt6svg6-dev libqt6websockets6-dev libvulkan-dev \
+            qt6-tools-dev qt6-l10n-tools \
             build-essential nasm git zip appstream xvfb qt6ct mesa-vulkan-drivers libzstd-dev
 
           # sdl3 dependencies
@@ -145,6 +146,7 @@ jobs:
             mingw-w64-ucrt-x86_64-sdl3
             mingw-w64-ucrt-x86_64-sdl3-net
             mingw-w64-ucrt-x86_64-qt6
+            mingw-w64-ucrt-x86_64-qt6-tools
             mingw-w64-ucrt-x86_64-libusb
             mingw-w64-ucrt-x86_64-hidapi
             mingw-w64-ucrt-x86_64-speexdsp
@@ -153,6 +155,8 @@ jobs:
             mingw-w64-ucrt-x86_64-minizip
             mingw-w64-ucrt-x86_64-vulkan-headers
             mingw-w64-ucrt-x86_64-zstd
+            mingw-w64-ucrt-x86_64-openssl
+            mingw-w64-ucrt-x86_64-libjpeg-turbo
             git
       - name: Prepare Environment
         run: |
