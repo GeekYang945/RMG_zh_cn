@@ -51,6 +51,7 @@ protected:
 	bool m_bCaptureScreen = false;
 	bool m_bToggleFullscreen = false;
 	bool m_bResizeWindow = false;
+	bool m_bApplyConfigVideoMode = false;
 	bool m_bFullscreen = false;
 	bool m_bAdjustScreen = false;
 
@@ -82,6 +83,7 @@ private:
 	virtual void _saveBufferContent(graphics::ObjectHandle _fbo, CachedTexture *_pTexture) = 0;
 	virtual void _changeWindow() = 0;
 	virtual bool _resizeWindow() = 0;
+	virtual void _applyConfigVideoMode() {}
 	virtual void _readScreen(void **_pDest, long *_pWidth, long *_pHeight) = 0;
 	virtual void _readScreen2(void * _dest, int * _width, int * _height, int _front) = 0;
 	virtual graphics::ObjectHandle _getDefaultFramebuffer() = 0;

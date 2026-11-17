@@ -122,6 +122,11 @@ void DisplayWindow::setWindowSize(u32 _width, u32 _height)
 
 bool DisplayWindow::resizeWindow()
 {
+	// apply any pending video-mode change requested by the
+	// configuration dialog, this runs on the render thread
+	// so it can safely resize the window without deadlocking
+	_applyConfigVideoMode();
+
 	if (!m_bResizeWindow)
 		return false;
 	m_drawer._destroyData();

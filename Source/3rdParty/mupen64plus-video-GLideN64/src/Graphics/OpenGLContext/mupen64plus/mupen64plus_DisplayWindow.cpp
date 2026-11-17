@@ -37,6 +37,7 @@ private:
 	void _saveScreenshot() override;
 	void _saveBufferContent(graphics::ObjectHandle _fbo, CachedTexture *_pTexture) override;
 	bool _resizeWindow() override;
+	void _applyConfigVideoMode() override;
 	void _changeWindow() override;
 	void _readScreen(void **_pDest, long *_pWidth, long *_pHeight) override {}
 	void _readScreen2(void * _dest, int * _width, int * _height, int _front) override;
@@ -142,8 +143,63 @@ void DisplayWindowMupen64plus::_stop()
 void DisplayWindowMupen64plus::_restart()
 {
 #ifdef M64P_GLIDENUI
+	// the video mode is re-applied in the render thread,
+	// so that resolution changes made in the configuration
+	// dialog take effect immediately
+	m_bApplyConfigVideoMode = true;
+#else
 	m_resizeWidth = 0;
 	m_resizeHeight = 0;
+#endif // M64P_GLIDENUI
+}
+
+void DisplayWindowMupen64plus::_applyConfigVideoMode()
+{
+#ifdef M64P_GLIDENUI
+	if (!m_bApplyConfigVideoMode)
+		return;
+	m_bApplyConfigVideoMode = false;
+
+	m_bFullscreen = config.video.fullscreen > 0;
+	if (m_bFullscreen) {
+		m_screenWidth = config.video.fullscreenWidth;
+		m_screenHeight = config.video.fullscreenHeight;
+		m_screenRefresh = config.video.fullscreenRefresh;
+	} else {
+		m_screenWidth = config.video.windowedWidth;
+		m_screenHeight = config.video.windowedHeight;
+	}
+
+	m64p_video_flags flags = M64VIDEOFLAG_SUPPORT_RESIZING;
+	m64p_error returnValue = M64ERR_SUCCESS;
+	if (_supportsWithRateFunctions) {
+		returnValue = FunctionWrapper::CoreVideo_SetVideoModeWithRate(
+			m_screenWidth, m_screenHeight, m_screenRefresh, 0,
+			m_bFullscreen ? M64VIDEO_FULLSCREEN : M64VIDEO_WINDOWED, flags);
+		if (returnValue != M64ERR_SUCCESS) {
+			_supportsWithRateFunctions = false;
+		}
+	}
+	if (!_supportsWithRateFunctions) {
+		returnValue = FunctionWrapper::CoreVideo_SetVideoMode(
+			m_screenWidth, m_screenHeight, 0,
+			m_bFullscreen ? M64VIDEO_FULLSCREEN : M64VIDEO_WINDOWED, flags);
+	}
+	if (returnValue != M64ERR_SUCCESS) {
+		LOG(LOG_ERROR, "Error setting videomode %dx%d. Error code: %d", m_screenWidth, m_screenHeight, returnValue);
+	}
+
+	// CoreVideo_SetVideoMode resizes the window, but the fresh size is
+	// reported back through setWindowSize(), which only marks the window
+	// as dirty when m_screenWidth/m_screenHeight differ from the new size.
+	// Since we already assigned the new size above, that comparison would
+	// fail and the internal render surface (m_width/m_height, scale and
+	// drawer data) would never be updated -> the game keeps rendering at
+	// the old resolution (letterboxed, or garbled when shrinking).
+	// So mark the window as dirty explicitly here.
+	m_resizeWidth = m_screenWidth;
+	m_resizeHeight = m_screenHeight;
+	m_bResizeWindow = true;
 #endif // M64P_GLIDENUI
 }
 
