@@ -113,7 +113,7 @@ void DisplayWindow::closeWindow()
 
 void DisplayWindow::setWindowSize(u32 _width, u32 _height)
 {
-	if (m_width != _width || m_height != _height) {
+	if (m_screenWidth != _width || m_screenHeight != _height) {
 		m_resizeWidth = _width;
 		m_resizeHeight = _height;
 		m_bResizeWindow = true;

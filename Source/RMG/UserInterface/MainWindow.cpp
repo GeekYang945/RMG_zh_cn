@@ -1478,6 +1478,9 @@ void MainWindow::connectActionSignals(void)
 
     connect(this->action_View_Toolbar, &QAction::toggled, this, &MainWindow::on_Action_View_Toolbar);
     connect(this->action_View_StatusBar, &QAction::toggled, this, &MainWindow::on_Action_View_StatusBar);
+    // keep the toolbar's context menu action in sync
+    // and save the setting when toggled from there
+    connect(this->toolBar->toggleViewAction(), &QAction::toggled, this, &MainWindow::on_Action_View_Toolbar);
     connect(this->action_View_GameList, &QAction::toggled, this, &MainWindow::on_Action_View_GameList);
     connect(this->action_View_GameGrid, &QAction::toggled, this, &MainWindow::on_Action_View_GameGrid);
     connect(this->action_View_UniformSize, &QAction::toggled, this, &MainWindow::on_Action_View_UniformSize);
@@ -2212,6 +2215,14 @@ void MainWindow::on_Action_View_Toolbar(bool checked)
     CoreSettingsSetValue(SettingsID::GUI_Toolbar, checked);
     this->toolBar->setVisible(checked);
     this->ui_ShowToolbar = checked;
+
+    // keep the View menu checkbox in sync when the toolbar
+    // visibility is toggled from the toolbar's context menu
+    if (this->action_View_Toolbar->isChecked() != checked)
+    {
+        const QSignalBlocker blocker(this->action_View_Toolbar);
+        this->action_View_Toolbar->setChecked(checked);
+    }
 }
 
 void MainWindow::on_Action_View_StatusBar(bool checked)
