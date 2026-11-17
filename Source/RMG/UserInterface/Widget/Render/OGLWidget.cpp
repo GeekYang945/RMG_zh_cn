@@ -9,6 +9,8 @@
  */
 #include "OGLWidget.hpp"
 
+#include "OnScreenDisplay.hpp"
+
 #include <QGuiApplication>
 
 #include <RMG-Core/Video.hpp>
@@ -62,6 +64,16 @@ QWidget* OGLWidget::GetWidget(void)
     return this->widgetContainer;
 }
 
+int OGLWidget::GetWidth(void) const
+{
+    return this->width;
+}
+
+int OGLWidget::GetHeight(void) const
+{
+    return this->height;
+}
+
 void OGLWidget::resizeEvent(QResizeEvent *event)
 {
     if (!this->isVisible())
@@ -81,6 +93,11 @@ void OGLWidget::resizeEvent(QResizeEvent *event)
     // see https://github.com/Rosalie241/RMG/issues/2
     this->width  = event->size().width() * this->devicePixelRatio();
     this->height = event->size().height() * this->devicePixelRatio();
+
+    // update the OSD display size to the actual
+    // size of the render surface, the size provided
+    // by the video plugin can differ in fullscreen
+    OnScreenDisplaySetDisplaySize(this->width, this->height);
 }
 
 void OGLWidget::timerEvent(QTimerEvent *event)

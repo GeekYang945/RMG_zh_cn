@@ -34,6 +34,9 @@ class OGLWidget : public QWindow
 
     QWidget* GetWidget(void);
 
+    int GetWidth(void) const;
+    int GetHeight(void) const;
+
   protected:
     void resizeEvent(QResizeEvent *) Q_DECL_OVERRIDE;
     void timerEvent(QTimerEvent *) Q_DECL_OVERRIDE;

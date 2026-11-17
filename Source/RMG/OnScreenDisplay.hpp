@@ -21,6 +21,11 @@ void OnScreenDisplayShutdown(void);
 // loads settings for the OSD
 void OnScreenDisplayLoadSettings(void);
 
+// sets the language which is used for the OSD messages,
+// this is used to load a font containing the required
+// glyphs when the language needs them
+void OnScreenDisplaySetLanguage(std::string language);
+
 // sets the display size for the OSD
 bool OnScreenDisplaySetDisplaySize(int width, int height);
 

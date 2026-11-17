@@ -14,6 +14,10 @@
 #include <backends/imgui_impl_opengl3.h>
 #include <imgui.h>
 #include <chrono>
+#include <filesystem>
+#include <cstdlib>
+#include <atomic>
+#include <vector>
 
 //
 // Local Variables
@@ -22,6 +26,11 @@
 static bool l_Initialized     = false;
 static bool l_Enabled         = false;
 static bool l_RenderingPaused = false;
+
+static std::string l_Language;
+
+static std::atomic<int> l_DisplayWidth{0};
+static std::atomic<int> l_DisplayHeight{0};
 
 static std::chrono::time_point<std::chrono::high_resolution_clock> l_MessageTime;
 static std::string l_Message;
@@ -39,6 +48,71 @@ static float       l_TextAlpha       = 1.0f;
 static int         l_MessageDuration = 3;
 
 //
+// Local Functions
+//
+
+// returns true when the currently configured language
+// needs a font which contains CJK glyphs
+static bool language_needs_cjk_font(void)
+{
+    return l_Language.rfind("zh", 0) == 0 ||
+           l_Language.rfind("ja", 0) == 0 ||
+           l_Language.rfind("ko", 0) == 0;
+}
+
+// returns the path of a system font which contains
+// CJK glyphs, or an empty string when none was found
+static std::string get_cjk_font_path(void)
+{
+    std::vector<std::string> fontCandidates;
+
+#ifdef _WIN32
+    const char* systemRoot = std::getenv("SystemRoot");
+    const std::string windowsDirectory = (systemRoot != nullptr) ? systemRoot : "C:/Windows";
+    fontCandidates =
+    {
+        windowsDirectory + "/Fonts/msyh.ttc",  // Microsoft YaHei
+        windowsDirectory + "/Fonts/msyh.ttf",  // Microsoft YaHei (older)
+        windowsDirectory + "/Fonts/msyhl.ttc", // Microsoft YaHei Light
+        windowsDirectory + "/Fonts/simhei.ttf",// SimHei
+        windowsDirectory + "/Fonts/simsun.ttc",// SimSun
+        windowsDirectory + "/Fonts/Deng.ttf",  // DengXian
+        windowsDirectory + "/Fonts/msjh.ttc",  // Microsoft JhengHei
+    };
+#elif defined(__APPLE__)
+    fontCandidates =
+    {
+        "/System/Library/Fonts/PingFang.ttc",
+        "/System/Library/Fonts/STHeiti Light.ttc",
+        "/System/Library/Fonts/Hiragino Sans GB.ttc",
+    };
+#else
+    fontCandidates =
+    {
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/opentype/noto/NotoSansCJKsc-Regular.otf",
+        "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/google-noto-cjk/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",
+        "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",
+        "/usr/share/fonts/truetype/arphic/uming.ttc",
+        "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf",
+    };
+#endif // _WIN32
+
+    for (const std::string& fontPath : fontCandidates)
+    {
+        std::error_code errorCode;
+        if (std::filesystem::is_regular_file(fontPath, errorCode))
+        {
+            return fontPath;
+        }
+    }
+
+    return std::string();
+}
+
+//
 // Exported Functions
 //
 
@@ -52,6 +126,20 @@ bool OnScreenDisplayInit(void)
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGui::StyleColorsDark();
+
+    // the default ImGui font doesn't contain CJK glyphs,
+    // so load a system font which contains them when the
+    // configured language needs them
+    if (language_needs_cjk_font())
+    {
+        const std::string fontPath = get_cjk_font_path();
+        if (!fontPath.empty())
+        {
+            ImGuiIO& io = ImGui::GetIO();
+            io.Fonts->AddFontFromFileTTF(fontPath.c_str(), 16.0f, nullptr,
+                                         io.Fonts->GetGlyphRangesChineseSimplifiedCommon());
+        }
+    }
 
     if (!ImGui_ImplOpenGL3_Init())
     {
@@ -103,17 +191,19 @@ void OnScreenDisplayLoadSettings(void)
     }
 }
 
+void OnScreenDisplaySetLanguage(std::string language)
+{
+    l_Language = language;
+}
+
 bool OnScreenDisplaySetDisplaySize(int width, int height)
 {
-    if (!l_Initialized)
-    {
-        return false;
-    }
-
-    ImGuiIO& io    = ImGui::GetIO();
-    io.IniFilename = nullptr;
-    io.DisplaySize = ImVec2((float)width, (float)height);
-    return true;
+    // the actual display size is applied
+    // in OnScreenDisplayRender() before a new frame is started,
+    // this can be called from another thread
+    l_DisplayWidth  = width;
+    l_DisplayHeight = height;
+    return l_Initialized;
 }
 
 void OnScreenDisplaySetMessage(std::string message)
@@ -141,10 +231,22 @@ void OnScreenDisplayRender(void)
         return;
     }
 
+    ImGuiIO& io = ImGui::GetIO();
+    io.IniFilename = nullptr;
+
+    // use the actual size of the render surface
+    // for positioning the OSD, the size provided
+    // by the video plugin is not necessarily
+    // the size of the surface in fullscreen
+    const int displayWidth  = l_DisplayWidth.load();
+    const int displayHeight = l_DisplayHeight.load();
+    if (displayWidth > 0 && displayHeight > 0)
+    {
+        io.DisplaySize = ImVec2((float)displayWidth, (float)displayHeight);
+    }
+
     ImGui_ImplOpenGL3_NewFrame();
     ImGui::NewFrame();
-    
-    ImGuiIO& io = ImGui::GetIO();
 
     // right bottom = ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x - 20.0f, io.DisplaySize.y - 20.0f), ImGuiCond_Always, ImVec2(1.0f, 1.0f));
     // right top    = ImGui::SetNextWindowPos(ImVec2(io.DisplaySize.x - 20.0f, 20.0f), ImGuiCond_Always, ImVec2(1.0f, 0));

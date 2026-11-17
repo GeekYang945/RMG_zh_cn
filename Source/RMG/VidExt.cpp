@@ -41,6 +41,30 @@ static QVulkanInfoVector<QVulkanExtension> l_VulkanExtensions;
 static QVector<const char*> l_VulkanExtensionList;
 
 //
+// Local Functions
+//
+
+// updates the OSD display size to the size
+// of the OpenGL render surface when available
+static void update_osd_display_size(int fallbackWidth, int fallbackHeight)
+{
+    if (l_OGLWidget == nullptr || *l_OGLWidget == nullptr)
+    {
+        return;
+    }
+
+    int width  = (*l_OGLWidget)->GetWidth();
+    int height = (*l_OGLWidget)->GetHeight();
+    if (width <= 0 || height <= 0)
+    {
+        width  = fallbackWidth;
+        height = fallbackHeight;
+    }
+
+    OnScreenDisplaySetDisplaySize(width, height);
+}
+
+//
 // VidExt Functions
 //
 
@@ -187,7 +211,7 @@ static m64p_error VidExt_SetMode(int Width, int Height, int BitsPerPixel, int Sc
             break;
     }
 
-    OnScreenDisplaySetDisplaySize(Width, Height);
+    update_osd_display_size(Width, Height);
     return M64ERR_SUCCESS;
 }
 
@@ -389,7 +413,7 @@ static m64p_error VidExt_ToggleFS(void)
 static m64p_error VidExt_ResizeWindow(int Width, int Height)
 {
     l_EmuThread->on_VidExt_ResizeWindow(Width, Height);
-    OnScreenDisplaySetDisplaySize(Width, Height);
+    update_osd_display_size(Width, Height);
     return M64ERR_SUCCESS;
 }
 
