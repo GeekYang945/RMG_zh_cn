@@ -138,7 +138,7 @@ struct InputProfile
     InputMapping Hotkey_Screenshot;
     bool Hotkey_LimitFPS_Pressed = false;
     InputMapping Hotkey_LimitFPS;
-    bool Hotkey_SpeedFactor_Pressed = false;
+    int  Hotkey_SpeedFactor_Active = 0;
     InputMapping Hotkey_SpeedFactor25;
     InputMapping Hotkey_SpeedFactor50;
     InputMapping Hotkey_SpeedFactor75;
@@ -982,6 +982,63 @@ static unsigned char data_crc(unsigned char *data, int length)
     return remainder;
 }
 
+static void check_speed_factor_hotkeys(InputProfile* profile)
+{
+    struct SpeedFactorHotkey
+    {
+        InputMapping* mapping;
+        int factor;
+    };
+
+    const SpeedFactorHotkey hotkeys[] =
+    {
+        { &profile->Hotkey_SpeedFactor25,  25  },
+        { &profile->Hotkey_SpeedFactor50,  50  },
+        { &profile->Hotkey_SpeedFactor75,  75  },
+        { &profile->Hotkey_SpeedFactor100, 100 },
+        { &profile->Hotkey_SpeedFactor125, 125 },
+        { &profile->Hotkey_SpeedFactor150, 150 },
+        { &profile->Hotkey_SpeedFactor175, 175 },
+        { &profile->Hotkey_SpeedFactor200, 200 },
+        { &profile->Hotkey_SpeedFactor225, 225 },
+        { &profile->Hotkey_SpeedFactor250, 250 },
+        { &profile->Hotkey_SpeedFactor275, 275 },
+        { &profile->Hotkey_SpeedFactor300, 300 },
+    };
+
+    // find the highest speed factor
+    // whose hotkey is currently held
+    int heldFactor = 0;
+    for (const SpeedFactorHotkey& hotkey : hotkeys)
+    {
+        if (get_button_state(profile, hotkey.mapping, true))
+        {
+            if (hotkey.factor > heldFactor)
+            {
+                heldFactor = hotkey.factor;
+            }
+        }
+    }
+
+    if (heldFactor != 0)
+    {
+        if (profile->Hotkey_SpeedFactor_Active != heldFactor)
+        {
+            CoreSetSpeedFactor(heldFactor);
+            profile->Hotkey_SpeedFactor_Active = heldFactor;
+        }
+        return;
+    }
+
+    // when no speed factor hotkey is held anymore,
+    // restore the normal speed
+    if (profile->Hotkey_SpeedFactor_Active != 0)
+    {
+        CoreSetSpeedFactor(100);
+        profile->Hotkey_SpeedFactor_Active = 0;
+    }
+}
+
 static bool check_hotkeys(int Control)
 {
     InputProfile* profile = &l_InputProfiles[Control];
@@ -994,6 +1051,11 @@ static bool check_hotkeys(int Control)
     {
         return false;
     }
+
+    // speed factor hotkeys apply while they're held,
+    // they're handled separately and are transparent,
+    // so that they don't block the game input
+    check_speed_factor_hotkeys(profile);
 
 #define DEFINE_HOTKEY(mapping, pressed, function, function2) \
     state = get_button_state(profile, &profile->mapping, true); \
@@ -1018,18 +1080,6 @@ static bool check_hotkeys(int Control)
     DEFINE_HOTKEY(Hotkey_Resume,                Hotkey_Resume_Pressed,        CoreIsEmulationPaused() ? CoreResumeEmulation() : CorePauseEmulation(), );
     DEFINE_HOTKEY(Hotkey_Screenshot,            Hotkey_Screenshot_Pressed,    CoreTakeScreenshot(), );
     DEFINE_HOTKEY(Hotkey_LimitFPS,              Hotkey_LimitFPS_Pressed,      CoreSetSpeedLimiterState(!CoreIsSpeedLimiterEnabled()), );
-    DEFINE_HOTKEY(Hotkey_SpeedFactor25,         Hotkey_SpeedFactor_Pressed,   CoreSetSpeedFactor(25), );
-    DEFINE_HOTKEY(Hotkey_SpeedFactor50,         Hotkey_SpeedFactor_Pressed,   CoreSetSpeedFactor(50), );
-    DEFINE_HOTKEY(Hotkey_SpeedFactor75,         Hotkey_SpeedFactor_Pressed,   CoreSetSpeedFactor(75), );
-    DEFINE_HOTKEY(Hotkey_SpeedFactor100,        Hotkey_SpeedFactor_Pressed,   CoreSetSpeedFactor(100), );
-    DEFINE_HOTKEY(Hotkey_SpeedFactor125,        Hotkey_SpeedFactor_Pressed,   CoreSetSpeedFactor(125), );
-    DEFINE_HOTKEY(Hotkey_SpeedFactor150,        Hotkey_SpeedFactor_Pressed,   CoreSetSpeedFactor(150), );
-    DEFINE_HOTKEY(Hotkey_SpeedFactor175,        Hotkey_SpeedFactor_Pressed,   CoreSetSpeedFactor(175), );
-    DEFINE_HOTKEY(Hotkey_SpeedFactor200,        Hotkey_SpeedFactor_Pressed,   CoreSetSpeedFactor(200), );
-    DEFINE_HOTKEY(Hotkey_SpeedFactor225,        Hotkey_SpeedFactor_Pressed,   CoreSetSpeedFactor(225), );
-    DEFINE_HOTKEY(Hotkey_SpeedFactor250,        Hotkey_SpeedFactor_Pressed,   CoreSetSpeedFactor(250), );
-    DEFINE_HOTKEY(Hotkey_SpeedFactor275,        Hotkey_SpeedFactor_Pressed,   CoreSetSpeedFactor(275), );
-    DEFINE_HOTKEY(Hotkey_SpeedFactor300,        Hotkey_SpeedFactor_Pressed,   CoreSetSpeedFactor(300), );
     DEFINE_HOTKEY(Hotkey_SaveState,             Hotkey_SaveState_Pressed,     CoreSaveState(), );
     DEFINE_HOTKEY(Hotkey_LoadState,             Hotkey_LoadState_Pressed,     CoreLoadSaveState(), );
     DEFINE_HOTKEY(Hotkey_GSButton,              Hotkey_GSButton_Pressed,      CorePressGamesharkButton(true), CorePressGamesharkButton(false));
