@@ -15,6 +15,7 @@
 #include <QTimerEvent>
 #include <QMimeData>
 #include <QLabel>
+#include <QEvent>
 
 using namespace UserInterface::Widget;
 
@@ -23,7 +24,7 @@ RomBrowserLoadingWidget::RomBrowserLoadingWidget(QWidget* parent) : QWidget(pare
     QHBoxLayout* layout = new QHBoxLayout(this);
 
     this->loadingLabel = new QLabel(this);
-    this->loadingLabel->setText("Loading");
+    this->loadingLabel->setText(tr("Loading"));
     this->loadingLabel->setAlignment(Qt::AlignHCenter | Qt::AlignVCenter);
 
     layout->addWidget(loadingLabel);
@@ -111,7 +112,7 @@ void RomBrowserLoadingWidget::on_RomBrowserWidget_currentChanged(int index)
 
 void RomBrowserLoadingWidget::updateLoadingText()
 {
-    QString loadingText = "Loading";
+    QString loadingText = tr("Loading");
 
     if (this->elapsedTimeSinceLoading.isValid() &&
         this->elapsedTimeSinceLoading.elapsed() >= 5000 &&
@@ -151,4 +152,14 @@ void RomBrowserLoadingWidget::timerEvent(QTimerEvent *event)
     }
 
    this->updateLoadingText();
+}
+
+void RomBrowserLoadingWidget::changeEvent(QEvent* event)
+{
+    if (event->type() == QEvent::LanguageChange)
+    {
+        this->updateLoadingText();
+    }
+
+    QWidget::changeEvent(event);
 }

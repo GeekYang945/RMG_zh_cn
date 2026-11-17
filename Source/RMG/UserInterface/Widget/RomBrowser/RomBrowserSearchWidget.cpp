@@ -9,18 +9,18 @@
  */
 #include "RomBrowserSearchWidget.hpp"
 
+#include <QEvent>
+
 using namespace UserInterface::Widget;
 
 RomBrowserSearchWidget::RomBrowserSearchWidget(QWidget* parent) : QWidget(parent)
 {
 	// configure search line edit
 	this->lineEdit = new QLineEdit(this);
-	this->lineEdit->setPlaceholderText("Search games...");
     connect(this->lineEdit, &QLineEdit::textChanged, this, &RomBrowserSearchWidget::on_lineEdit_textChanged);
 
     // configure close button
 	this->closeButton = new QPushButton(this);
-    this->closeButton->setText("Close");
     connect(this->closeButton, &QPushButton::clicked, this, &RomBrowserSearchWidget::on_closeButton_clicked);
 
     // configure layout
@@ -28,6 +28,8 @@ RomBrowserSearchWidget::RomBrowserSearchWidget(QWidget* parent) : QWidget(parent
     this->widgetLayout->addWidget(this->lineEdit);
     this->widgetLayout->addWidget(this->closeButton);
     this->setLayout(this->widgetLayout);
+
+    this->RetranslateUI();
 }
 
 RomBrowserSearchWidget::~RomBrowserSearchWidget(void)
@@ -37,6 +39,22 @@ RomBrowserSearchWidget::~RomBrowserSearchWidget(void)
 void RomBrowserSearchWidget::FocusSearchText(void)
 {
 	this->lineEdit->setFocus();
+}
+
+void RomBrowserSearchWidget::RetranslateUI(void)
+{
+    this->lineEdit->setPlaceholderText(tr("Search games..."));
+    this->closeButton->setText(tr("Close"));
+}
+
+void RomBrowserSearchWidget::changeEvent(QEvent* event)
+{
+    if (event->type() == QEvent::LanguageChange)
+    {
+        this->RetranslateUI();
+    }
+
+    QWidget::changeEvent(event);
 }
 
 void RomBrowserSearchWidget::ClearSearchTerm(void)

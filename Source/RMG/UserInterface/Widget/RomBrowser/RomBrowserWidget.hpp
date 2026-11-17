@@ -53,6 +53,8 @@ class RomBrowserWidget : public QWidget
     bool IsRefreshingRomList(void);
     void StopRefreshRomList(void);
 
+    void RetranslateUI(void);
+
     void ShowList(void);
     void ShowGrid(void);
 
@@ -119,6 +121,7 @@ class RomBrowserWidget : public QWidget
 
   protected:
     void timerEvent(QTimerEvent *event) Q_DECL_OVERRIDE;
+    void changeEvent(QEvent *event) Q_DECL_OVERRIDE;
 
   private slots:
     void on_DoubleClicked(const QModelIndex& index);

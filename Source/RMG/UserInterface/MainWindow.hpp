@@ -33,6 +33,7 @@
 #include <QMainWindow>
 #include <QMessageBox>
 #include <QAction>
+#include <QTranslator>
 
 #include "ui_MainWindow.h"
 
@@ -116,6 +117,14 @@ class MainWindow : public QMainWindow, private Ui::MainWindow
     int ui_LoadSaveStateSlotTimerId = -1;
 
     QString ui_WindowTitle;
+    QString ui_Language;
+
+    bool ui_CenteredOnce = false;
+
+    QTranslator* ui_Translator   = nullptr;
+    QTranslator* ui_QtTranslator = nullptr;
+    QTranslator* ui_PluginTranslator = nullptr;
+    QTranslator* ui_ExtraTranslator  = nullptr;
 
     Dialog::LogDialog logDialog;
 #ifdef NETPLAY
@@ -123,11 +132,15 @@ class MainWindow : public QMainWindow, private Ui::MainWindow
 #endif // NETPLAY
 
     void closeEvent(QCloseEvent *) Q_DECL_OVERRIDE;
+    void changeEvent(QEvent *) Q_DECL_OVERRIDE;
 
     void initializeUI(bool launchROM);
 
     void configureUI(QApplication* app, bool showUI);
     void configureTheme(QApplication* app);
+    void configureLanguage(void);
+
+    void retranslateUI(void);
 
     QString getWindowTitle(void);
 

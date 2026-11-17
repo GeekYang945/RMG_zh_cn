@@ -57,12 +57,12 @@ NetplaySessionBrowserDialog::NetplaySessionBrowserDialog(QWidget *parent, QWebSo
 
     // change ok button name
     QPushButton* joinButton = this->buttonBox->button(QDialogButtonBox::Ok);
-    joinButton->setText("Join");
+    joinButton->setText(tr("Join"));
     joinButton->setEnabled(false);
 
     // change restore defaults button name
     QPushButton* refreshButton = this->buttonBox->button(QDialogButtonBox::RestoreDefaults);
-    refreshButton->setText("Refresh");
+    refreshButton->setText(tr("Refresh"));
     refreshButton->setIcon(QIcon::fromTheme("refresh-line"));
     refreshButton->setEnabled(false);
 
@@ -85,7 +85,7 @@ NetplaySessionBrowserDialog::NetplaySessionBrowserDialog(QWidget *parent, QWebSo
             }
             else
             {
-                QtMessageBox::Error(this, "Server Error", "Failed to open server list json: " + qFile.errorString());
+                QtMessageBox::Error(this, tr("Server Error"), tr("Failed to open server list json: %1").arg(qFile.errorString()));
             }
         }
         else if (QUrl(serverUrl).isValid())
@@ -127,8 +127,8 @@ QString NetplaySessionBrowserDialog::GetSessionFile(void)
 
 QString NetplaySessionBrowserDialog::showROMDialog(QString name, QString md5)
 {
-    QString title = "Open " + name;
-    QString file = QFileDialog::getOpenFileName(this, title, "", "N64 ROMs (*.n64 *.z64 *.v64 *.zip *.7z)");
+    QString title = tr("Open %1").arg(name);
+    QString file = QFileDialog::getOpenFileName(this, title, "", tr("N64 ROMs (*.n64 *.z64 *.v64 *.zip *.7z)"));
     CoreRomSettings romSettings;
 
     if (!file.isEmpty())
@@ -144,9 +144,9 @@ QString NetplaySessionBrowserDialog::showROMDialog(QString name, QString md5)
 
         if (md5.toStdString() != romSettings.MD5)
         {
-            QString details = "Expected MD5: " + md5 + "\n";
-            details        += "Received MD5: " + QString::fromStdString(romSettings.MD5);
-            QtMessageBox::Error(this, "Incorrect ROM Selected", details);
+            QString details = tr("Expected MD5: %1\nReceived MD5: %2")
+                                .arg(md5, QString::fromStdString(romSettings.MD5));
+            QtMessageBox::Error(this, tr("Incorrect ROM Selected"), details);
             return "";
         }
     }
@@ -232,7 +232,7 @@ void NetplaySessionBrowserDialog::on_webSocket_connected(void)
 {
     if (!this->webSocket->isValid())
     {
-        QtMessageBox::Error(this, "Server Error", "Connection Failed");
+        QtMessageBox::Error(this, tr("Server Error"), tr("Connection Failed"));
         return;
     }
 
@@ -281,7 +281,7 @@ void NetplaySessionBrowserDialog::on_webSocket_textMessageReceived(QString messa
         else
         {
             this->sessionBrowserWidget->Reset();
-            QtMessageBox::Error(this, "Server Error", json.value("message").toString());
+            QtMessageBox::Error(this, tr("Server Error"), json.value("message").toString());
         }
     }
     else if (type == "reply_join_room")
@@ -293,7 +293,7 @@ void NetplaySessionBrowserDialog::on_webSocket_textMessageReceived(QString messa
         }
         else
         {
-            QtMessageBox::Error(this, "Server Error", json.value("message").toString());
+            QtMessageBox::Error(this, tr("Server Error"), json.value("message").toString());
             this->toggleUI(true, this->validate());
         }
     }
@@ -327,7 +327,7 @@ void NetplaySessionBrowserDialog::on_jsonServerListDownload_Finished(QNetworkRep
     if (reply->error())
     {
         this->sessionBrowserWidget->Reset();
-        QtMessageBox::Error(this, "Server Error", "Failed to retrieve server list json: " + reply->errorString());
+        QtMessageBox::Error(this, tr("Server Error"), tr("Failed to retrieve server list json: %1").arg(reply->errorString()));
         reply->deleteLater();
         return;
     }
@@ -354,7 +354,7 @@ void NetplaySessionBrowserDialog::on_serverComboBox_currentIndexChanged(int inde
         this->pingTimerId = -1;
     }
 
-    this->pingLineEdit->setText("Calculating...");
+    this->pingLineEdit->setText(tr("Calculating..."));
     this->sessionBrowserWidget->StartRefresh();
 
     this->pingTimerId = this->startTimer(2000);
@@ -392,7 +392,7 @@ void NetplaySessionBrowserDialog::accept()
 {
     if (!this->webSocket->isValid())
     {
-        QtMessageBox::Error(this, "Server Error", "Connection Failed");
+        QtMessageBox::Error(this, tr("Server Error"), tr("Connection Failed"));
         return;
     }
 
@@ -426,17 +426,15 @@ void NetplaySessionBrowserDialog::accept()
     QString details;
     if (sessionData.RspPlugin != pluginNames[0])
     {
-        details  = "Expected RSP Plugin: " + sessionData.RspPlugin + "\n";
-        details += "Current  RSP Plugin: " + pluginNames[0];
-        QtMessageBox::Error(this, "RSP Plugin Mismatch", details);
+        details  = tr("Expected RSP Plugin: %1\nCurrent  RSP Plugin: %2").arg(sessionData.RspPlugin, pluginNames[0]);
+        QtMessageBox::Error(this, tr("RSP Plugin Mismatch"), details);
         this->toggleUI(true, true);
         return;
     }
     if (sessionData.GfxPlugin != pluginNames[1])
     {
-        details  = "Expected GFX Plugin: " + sessionData.GfxPlugin + "\n";
-        details += "Current  GFX Plugin: " + pluginNames[1];
-        QtMessageBox::Error(this, "GFX Plugin Mismatch", details);
+        details  = tr("Expected GFX Plugin: %1\nCurrent  GFX Plugin: %2").arg(sessionData.GfxPlugin, pluginNames[1]);
+        QtMessageBox::Error(this, tr("GFX Plugin Mismatch"), details);
         this->toggleUI(true, true);
         return;
     }

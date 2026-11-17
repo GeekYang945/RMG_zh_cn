@@ -117,6 +117,36 @@
                 </layout>
                </item>
                <item>
+                <layout class="QHBoxLayout" name="horizontalLayout_language">
+                 <item>
+                  <widget class="QLabel" name="languageLabel">
+                   <property name="text">
+                    <string>Language</string>
+                   </property>
+                  </widget>
+                 </item>
+                 <item>
+                  <widget class="QComboBox" name="languageComboBox">
+                   <item>
+                    <property name="text">
+                     <string>System</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>English</string>
+                    </property>
+                   </item>
+                   <item>
+                    <property name="text">
+                     <string>Simplified Chinese</string>
+                    </property>
+                   </item>
+                  </widget>
+                 </item>
+                </layout>
+               </item>
+               <item>
                 <widget class="QCheckBox" name="checkForUpdatesCheckBox">
                  <property name="text">
                   <string>Check for updates</string>

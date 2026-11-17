@@ -16,6 +16,7 @@
 #include <QScrollBar>
 #include <QPixmap>
 #include <QLabel>
+#include <QEvent>
 #include <vector>
 #include <QList>
 #include <QDir>
@@ -128,30 +129,9 @@ RomBrowserWidget::RomBrowserWidget(QWidget *parent) : QWidget(parent)
     connect(this->listViewWidget, &Widget::RomBrowserListViewWidget::ZoomOut, this, &RomBrowserWidget::on_ZoomOut);
     connect(this->listViewWidget, &Widget::RomBrowserListViewWidget::FileDropped, this, &RomBrowserWidget::FileDropped);
 
-    // set up list view's columns
-    QStringList labels;
-    labels << "Name";
-    labels << "Internal Name";
-    labels << "MD5";
-    labels << "Format";
-    labels << "File Name";
-    labels << "File Ext.";
-    labels << "File Size";
-    labels << "I.D.";
-    labels << "Region";
-    this->listViewModel->setColumnCount(labels.size());
-    this->listViewModel->setHorizontalHeaderLabels(labels);
-
-    // set full names of list view's columns
-    this->columnNames << labels.at(0);
-    this->columnNames << labels.at(1);
-    this->columnNames << labels.at(2);
-    this->columnNames << "Game Format";
-    this->columnNames << labels.at(4);
-    this->columnNames << "File Extension";
-    this->columnNames << labels.at(6);
-    this->columnNames << "Game I.D.";
-    this->columnNames << "Game Region";
+    // set up list view's columns,
+    // the actual labels are set in RetranslateUI()
+    this->listViewModel->setColumnCount(9);
 
     // configure grid view widget
     this->gridViewWidget = new Widget::RomBrowserGridViewWidget(this);
@@ -209,35 +189,21 @@ RomBrowserWidget::RomBrowserWidget(QWidget *parent) : QWidget(parent)
     this->action_ColumnsMenuEntry = new QAction(this);
 
     // configure context menu contents
-    this->action_PlayGame->setText("Play Game");
+    // (texts are set in RetranslateUI())
     this->action_PlayGame->setIcon(QIcon::fromTheme("gamepad-line"));
-    this->action_PlayGameWith->setText("Play Game with Disk");
     this->action_PlayGameWith->setIcon(QIcon::fromTheme("hard-drive-line"));
-    this->menu_PlayGameWithDisk->menuAction()->setText("Play Game with Disk");
     this->menu_PlayGameWithDisk->menuAction()->setIcon(QIcon::fromTheme("hard-drive-line"));
-    this->menu_PlayGameWithSlot->menuAction()->setText("Play Game with State");
     this->menu_PlayGameWithSlot->menuAction()->setIcon(QIcon::fromTheme("save-3-line"));
-    this->action_RefreshRomList->setText("Refresh ROM List");
     this->action_RefreshRomList->setIcon(QIcon::fromTheme("refresh-line"));
-    this->action_OpenRomDirectory->setText("Open ROM Directory");
     this->action_OpenRomDirectory->setIcon(QIcon::fromTheme("folder-open-line"));
-    this->action_ChangeRomDirectory->setText("Change ROM Directory...");
     this->action_ChangeRomDirectory->setIcon(QIcon::fromTheme("pencil-line"));
-    this->action_RomInformation->setText("ROM Information");
     this->action_RomInformation->setIcon(QIcon::fromTheme("information-line"));
-    this->action_EditGameSettings->setText("Edit Game Settings");
     this->action_EditGameSettings->setIcon(QIcon::fromTheme("settings-3-line"));
-    this->action_EditGameInputSettings->setText("Edit Game Input Settings");
     this->action_EditGameInputSettings->setIcon(QIcon::fromTheme("gamepad-line"));
-    this->action_EditCheats->setText("Edit Cheats");
     this->action_EditCheats->setIcon(QIcon::fromTheme("code-box-line"));
-    this->action_ResetColumnSizes->setText("Reset Column Sizes");
     this->action_ResetColumnSizes->setIcon(QIcon::fromTheme("restart-line"));
-    this->menu_Columns->menuAction()->setText("Show/Hide Columns");
     this->menu_Columns->menuAction()->setIcon(QIcon::fromTheme("eye-line"));
-    this->action_SetCoverImage->setText("Set Cover Image...");
     this->action_SetCoverImage->setIcon(QIcon::fromTheme("file-line"));
-    this->action_RemoveCoverImage->setText("Remove Cover Image");
     this->action_RemoveCoverImage->setIcon(QIcon::fromTheme("delete-bin-line"));
     connect(this->action_PlayGame, &QAction::triggered, this, &RomBrowserWidget::on_Action_PlayGame);
     connect(this->action_PlayGameWith, &QAction::triggered, this, &RomBrowserWidget::on_Action_PlayGameWith);
@@ -285,6 +251,84 @@ RomBrowserWidget::RomBrowserWidget(QWidget *parent) : QWidget(parent)
     {
         this->currentViewWidget = this->gridViewWidget;
     }
+
+    this->RetranslateUI();
+}
+
+void RomBrowserWidget::RetranslateUI(void)
+{
+    // list view's column labels
+    QStringList labels;
+    labels << tr("Name");
+    labels << tr("Internal Name");
+    labels << tr("MD5");
+    labels << tr("Format");
+    labels << tr("File Name");
+    labels << tr("File Ext.");
+    labels << tr("File Size");
+    labels << tr("I.D.");
+    labels << tr("Region");
+
+    if (this->listViewModel->columnCount() != labels.size())
+    {
+        this->listViewModel->setColumnCount(labels.size());
+    }
+    this->listViewModel->setHorizontalHeaderLabels(labels);
+
+    // full names of list view's columns
+    this->columnNames.clear();
+    this->columnNames << labels.at(0);
+    this->columnNames << labels.at(1);
+    this->columnNames << labels.at(2);
+    this->columnNames << tr("Game Format");
+    this->columnNames << labels.at(4);
+    this->columnNames << tr("File Extension");
+    this->columnNames << labels.at(6);
+    this->columnNames << tr("Game I.D.");
+    this->columnNames << tr("Game Region");
+
+    // translate the format of the entries
+    // which are already in the list
+    for (int i = 0; i < this->listViewModel->rowCount(); i++)
+    {
+        QStandardItem* formatItem = this->listViewModel->item(i, 3);
+        QStandardItem* dataItem   = this->listViewModel->item(i, 0);
+        if (formatItem == nullptr || dataItem == nullptr ||
+            !dataItem->data().isValid())
+        {
+            continue;
+        }
+
+        RomBrowserModelData data = dataItem->data().value<RomBrowserModelData>();
+        formatItem->setText(data.type == CoreRomType::Disk ? tr("Disk") : tr("Cartridge"));
+    }
+
+    // context menu texts
+    this->action_PlayGame->setText(tr("Play Game"));
+    this->action_PlayGameWith->setText(tr("Play Game with Disk"));
+    this->menu_PlayGameWithDisk->menuAction()->setText(tr("Play Game with Disk"));
+    this->menu_PlayGameWithSlot->menuAction()->setText(tr("Play Game with State"));
+    this->action_RefreshRomList->setText(tr("Refresh ROM List"));
+    this->action_OpenRomDirectory->setText(tr("Open ROM Directory"));
+    this->action_ChangeRomDirectory->setText(tr("Change ROM Directory..."));
+    this->action_RomInformation->setText(tr("ROM Information"));
+    this->action_EditGameSettings->setText(tr("Edit Game Settings"));
+    this->action_EditGameInputSettings->setText(tr("Edit Game Input Settings"));
+    this->action_EditCheats->setText(tr("Edit Cheats"));
+    this->action_ResetColumnSizes->setText(tr("Reset Column Sizes"));
+    this->menu_Columns->menuAction()->setText(tr("Show/Hide Columns"));
+    this->action_SetCoverImage->setText(tr("Set Cover Image..."));
+    this->action_RemoveCoverImage->setText(tr("Remove Cover Image"));
+}
+
+void RomBrowserWidget::changeEvent(QEvent* event)
+{
+    if (event->type() == QEvent::LanguageChange)
+    {
+        this->RetranslateUI();
+    }
+
+    QWidget::changeEvent(event);
 }
 
 RomBrowserWidget::~RomBrowserWidget()
@@ -527,11 +571,11 @@ void RomBrowserWidget::addRomData(QString file, CoreRomType type, CoreRomHeader 
     // generate game format to use in UI
     if (type == CoreRomType::Disk)
     {
-        gameFormat = "Disk";
+        gameFormat = tr("Disk");
     }
     else
     {
-        gameFormat = "Cartridge";
+        gameFormat = tr("Cartridge");
     }
 
     // generate file size to use in UI
@@ -724,11 +768,11 @@ void RomBrowserWidget::customContextMenuRequested(QPoint position)
 
     if (hasSelection && data.type == CoreRomType::Disk)
     { // disk selected
-        this->action_PlayGameWith->setText("Play Game with Cartridge...");
+        this->action_PlayGameWith->setText(tr("Play Game with Cartridge..."));
     }
     else
     { // cartridge selected
-        this->action_PlayGameWith->setText("Play Game with Disk...");
+        this->action_PlayGameWith->setText(tr("Play Game with Disk..."));
     }
 
     if (view == this->listViewWidget)
@@ -740,11 +784,11 @@ void RomBrowserWidget::customContextMenuRequested(QPoint position)
     { // grid view
         if (data.coverFile.isEmpty())
         {
-            this->action_SetCoverImage->setText("Set Cover Image...");
+            this->action_SetCoverImage->setText(tr("Set Cover Image..."));
         }
         else
         {
-            this->action_SetCoverImage->setText("Change Cover Image...");
+            this->action_SetCoverImage->setText(tr("Change Cover Image..."));
         }
     }
 
@@ -790,7 +834,7 @@ void RomBrowserWidget::generatePlayWithDiskMenu(void)
         {
             if (count == 0)
             { // only add 'Browse...' action when there are disks
-                this->menu_PlayGameWithDisk->addAction("Browse...");
+                this->menu_PlayGameWithDisk->addAction(tr("Browse..."));
                 this->menu_PlayGameWithDisk->addSeparator();
             }
 
@@ -834,7 +878,7 @@ void RomBrowserWidget::generateStateMenu(void)
         QFileInfo saveStateFileInfo(QString::fromStdWString(saveStatePath.wstring()));
         if (!saveStatePath.empty() && saveStateFileInfo.exists())
         {
-            saveStateSlotText = "Slot " + QString::number(i) + " - ";
+            saveStateSlotText = tr("Slot %1 - ").arg(QString::number(i));
             saveStateSlotText += saveStateFileInfo.lastModified().toString("dd/MM/yyyy hh:mm");
 
             QAction* slotAction = this->menu_PlayGameWithSlot->addAction(saveStateSlotText);

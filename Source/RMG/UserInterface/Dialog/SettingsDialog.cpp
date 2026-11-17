@@ -461,6 +461,21 @@ void SettingsDialog::loadInterfaceGeneralSettings(void)
     // select currently chosen theme in UI
     this->themeComboBox->setCurrentText(QString::fromStdString(CoreSettingsGetStringValue(SettingsID::GUI_Theme)));
     this->iconThemeComboBox->setCurrentText(QString::fromStdString(CoreSettingsGetStringValue(SettingsID::GUI_IconTheme)));
+
+    // select currently chosen language in UI
+    const QString language = QString::fromStdString(CoreSettingsGetStringValue(SettingsID::GUI_Language));
+    if (language == "en")
+    {
+        this->languageComboBox->setCurrentIndex(1);
+    }
+    else if (language.startsWith("zh"))
+    {
+        this->languageComboBox->setCurrentIndex(2);
+    }
+    else
+    {
+        this->languageComboBox->setCurrentIndex(0);
+    }
 #ifdef UPDATER
     this->checkForUpdatesCheckBox->setChecked(CoreSettingsGetBoolValue(SettingsID::GUI_CheckForUpdates));
 #endif // UPDATER
@@ -623,6 +638,7 @@ void SettingsDialog::loadDefaultInterfaceGeneralSettings(void)
 {
     this->themeComboBox->setCurrentText(QString::fromStdString(CoreSettingsGetDefaultStringValue(SettingsID::GUI_Theme)));
     this->iconThemeComboBox->setCurrentText(QString::fromStdString(CoreSettingsGetDefaultStringValue(SettingsID::GUI_IconTheme)));
+    this->languageComboBox->setCurrentIndex(0);
 #ifdef UPDATER
     this->checkForUpdatesCheckBox->setChecked(CoreSettingsGetDefaultBoolValue(SettingsID::GUI_CheckForUpdates));
 #endif // UPDATER
@@ -862,6 +878,18 @@ void SettingsDialog::saveInterfaceGeneralSettings(void)
 {
     CoreSettingsSetValue(SettingsID::GUI_Theme, this->themeComboBox->currentText().toStdString());
     CoreSettingsSetValue(SettingsID::GUI_IconTheme, this->iconThemeComboBox->currentText().toStdString());
+
+    std::string language = "System";
+    const int languageIndex = this->languageComboBox->currentIndex();
+    if (languageIndex == 1)
+    {
+        language = "en";
+    }
+    else if (languageIndex == 2)
+    {
+        language = "zh_CN";
+    }
+    CoreSettingsSetValue(SettingsID::GUI_Language, language);
 #ifdef UPDATER
     CoreSettingsSetValue(SettingsID::GUI_CheckForUpdates, this->checkForUpdatesCheckBox->isChecked());
 #endif // UPDATER
@@ -1221,14 +1249,14 @@ void SettingsDialog::chooseFile(QLineEdit *lineEdit, QString caption, QString fi
         QFile qFile(file);
         if (!qFile.open(QFile::ReadOnly))
         {
-            QtMessageBox::Error(this, "Failed to open file", "QFile::open() Failed");
+            QtMessageBox::Error(this, tr("Failed to open file"), "QFile::open() Failed");
             return;
         }
 
         QCryptographicHash hash(QCryptographicHash::Algorithm::Md5);
         if (!hash.addData(&qFile))
         {
-            QtMessageBox::Error(this, "MD5 hashing failed", "QCryptographicHash::addData() Failed");
+            QtMessageBox::Error(this, tr("MD5 hashing failed"), "QCryptographicHash::addData() Failed");
             return;
         }
 
@@ -1246,7 +1274,7 @@ void SettingsDialog::chooseFile(QLineEdit *lineEdit, QString caption, QString fi
 
         if (!hashFound)
         {
-            QtMessageBox::Error(this, "MD5 mismatch", "Expected file with MD5: \"" + md5List.first() + "\"");
+            QtMessageBox::Error(this, tr("MD5 mismatch"), tr("Expected file with MD5: \"%1\"").arg(md5List.first()));
             return;
         }
     }

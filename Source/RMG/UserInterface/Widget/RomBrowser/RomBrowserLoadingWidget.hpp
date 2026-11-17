@@ -54,6 +54,7 @@ private:
 
 protected:
     void timerEvent(QTimerEvent *event) Q_DECL_OVERRIDE;
+    void changeEvent(QEvent* event) Q_DECL_OVERRIDE;
 };
 } // namespace Widget
 } // namespace UserInterface

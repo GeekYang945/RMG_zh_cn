@@ -65,11 +65,11 @@ NetplaySessionDialog::NetplaySessionDialog(QWidget *parent, QWebSocket* webSocke
     webSocket->sendTextMessage(QJsonDocument(json).toJson());
 
     QPushButton* startButton = this->buttonBox->button(QDialogButtonBox::Ok);
-    startButton->setText("Start");
+    startButton->setText(tr("Start"));
     startButton->setEnabled(false);
 
     QPushButton* cheatsButton = this->buttonBox->button(QDialogButtonBox::RestoreDefaults);
-    cheatsButton->setText("Cheats");
+    cheatsButton->setText(tr("Cheats"));
     cheatsButton->setIcon(QIcon::fromTheme("code-box-line"));
 
     this->updateCheatsTreeWidget();
@@ -202,7 +202,7 @@ void NetplaySessionDialog::on_webSocket_textMessageReceived(const QString& messa
             startButton->setEnabled(true);
             cheatsButton->setEnabled(true);
 
-            QtMessageBox::Error(this, "Server Error", json.value("message").toString());
+            QtMessageBox::Error(this, tr("Server Error"), json.value("message").toString());
         }
     }
     else if (type == "reply_motd")
@@ -220,7 +220,7 @@ void NetplaySessionDialog::on_webSocket_textMessageReceived(const QString& messa
         }
         else
         {
-            QtMessageBox::Error(this, "Server Error", json.value("message").toString());
+            QtMessageBox::Error(this, tr("Server Error"), json.value("message").toString());
         }
     }
 }

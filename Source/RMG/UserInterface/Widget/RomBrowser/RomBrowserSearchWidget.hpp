@@ -29,6 +29,7 @@ public:
 
 	void FocusSearchText(void);
 	void ClearSearchTerm(void);
+	void RetranslateUI(void);
 	
 signals:
 	void SearchTextChanged(const QString& text);
@@ -37,6 +38,9 @@ private:
 	QHBoxLayout* widgetLayout = nullptr;
 	QLineEdit* lineEdit = nullptr;
 	QPushButton* closeButton = nullptr;
+
+protected:
+	void changeEvent(QEvent* event) Q_DECL_OVERRIDE;
 
 private slots:
 	void on_lineEdit_textChanged(const QString& text);

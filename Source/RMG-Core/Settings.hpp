@@ -463,6 +463,11 @@ enum class SettingsID
     GCAInput_TriggerTreshold,
     GCAInput_SwapZL,
 
+    // GUI Language Setting
+    // NOTE: keep this at the end to not
+    // change the values of the other settings
+    GUI_Language,
+
     Invalid
 };
 

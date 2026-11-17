@@ -50,7 +50,12 @@
 #include <QStatusBar>
 #include <QMenuBar>
 #include <QString>
+#include <QTranslator>
+#include <QLibraryInfo>
+#include <QLocale>
 #include <QTimer>
+#include <QEvent>
+#include <QScreen>
 #include <QDir>
 #include <QUrl>
 
@@ -96,6 +101,10 @@ bool MainWindow::Init(QApplication* app, bool showUI, bool launchROM)
         this->showErrorMessage("CoreInit() Failed", QString::fromStdString(CoreGetError()));
         return false;
     }
+
+    // load the translation before creating any UI,
+    // so that the UI is created in the configured language
+    this->configureLanguage();
 
     if (!CoreApplyPluginSettings())
     {
@@ -177,7 +186,7 @@ void MainWindow::closeEvent(QCloseEvent *event)
         CoreSettingsGetBoolValue(SettingsID::GUI_ConfirmExitWhileInGame))
     {
         bool skipExitConfirmation = false;
-        bool ret = QtMessageBox::Question(this, "Are you sure you want to exit RMG?", "Don't ask for confirmation again", skipExitConfirmation);
+        bool ret = QtMessageBox::Question(this, tr("Are you sure you want to exit RMG?"), tr("Don't ask for confirmation again"), skipExitConfirmation);
         if (!ret)
         {
             event->ignore();
@@ -228,6 +237,16 @@ void MainWindow::closeEvent(QCloseEvent *event)
     CoreShutdown();
 
     QMainWindow::closeEvent(event);
+}
+
+void MainWindow::changeEvent(QEvent *event)
+{
+    if (event->type() == QEvent::LanguageChange)
+    {
+        this->retranslateUI();
+    }
+
+    QMainWindow::changeEvent(event);
 }
 
 void MainWindow::initializeUI(bool launchROM)
@@ -443,6 +462,170 @@ void MainWindow::configureTheme(QApplication* app)
     QIcon::setFallbackThemeName(fallbackThemeName);
 }
 
+void MainWindow::configureLanguage(void)
+{
+    const QString language = QString::fromStdString(CoreSettingsGetStringValue(SettingsID::GUI_Language));
+
+    // remove previously installed translators
+    if (this->ui_Translator != nullptr)
+    {
+        QCoreApplication::removeTranslator(this->ui_Translator);
+        delete this->ui_Translator;
+        this->ui_Translator = nullptr;
+    }
+
+    if (this->ui_QtTranslator != nullptr)
+    {
+        QCoreApplication::removeTranslator(this->ui_QtTranslator);
+        delete this->ui_QtTranslator;
+        this->ui_QtTranslator = nullptr;
+    }
+
+    if (this->ui_PluginTranslator != nullptr)
+    {
+        QCoreApplication::removeTranslator(this->ui_PluginTranslator);
+        delete this->ui_PluginTranslator;
+        this->ui_PluginTranslator = nullptr;
+    }
+
+    if (this->ui_ExtraTranslator != nullptr)
+    {
+        QCoreApplication::removeTranslator(this->ui_ExtraTranslator);
+        delete this->ui_ExtraTranslator;
+        this->ui_ExtraTranslator = nullptr;
+    }
+
+    this->ui_Language = language;
+
+    // "System" means that we use
+    // the language of the operating system
+    QString localeName = language;
+    if (localeName.isEmpty() || localeName == "System")
+    {
+        localeName = QLocale::system().name();
+    }
+
+    // let the OSD know about the language,
+    // so that it can load a font with the required glyphs
+    OnScreenDisplaySetLanguage(localeName.toStdString());
+
+    // English is the source language of RMG,
+    // so there's no translation to load for it
+    if (localeName.startsWith("en"))
+    {
+        return;
+    }
+
+    QTranslator* translator = new QTranslator(this);
+    if (!translator->load(":/i18n/rmg_" + localeName + ".qm"))
+    {
+        // no translation available for this language,
+        // fall back to English
+        delete translator;
+        return;
+    }
+
+    QCoreApplication::installTranslator(translator);
+    this->ui_Translator = translator;
+
+    // also load Qt's own translation,
+    // so that standard widgets (i.e dialog buttons)
+    // are translated as well
+    QTranslator* qtTranslator = new QTranslator(this);
+    if (qtTranslator->load("qtbase_" + localeName,
+                           QLibraryInfo::path(QLibraryInfo::LibraryPath::TranslationsPath)))
+    {
+        QCoreApplication::installTranslator(qtTranslator);
+        this->ui_QtTranslator = qtTranslator;
+    }
+    else
+    {
+        delete qtTranslator;
+    }
+
+    // the configuration dialog of GLideN64 is shown
+    // from within RMG and comes with its own translations,
+    // load the matching one as well so that the language
+    // of the dialog matches the language of RMG
+    const QString languageCode = QLocale(localeName).name().section('_', 0, 0);
+    QTranslator* pluginTranslator = new QTranslator(this);
+    if (pluginTranslator->load(":/i18n/gliden64_" + localeName + ".qm") ||
+        pluginTranslator->load(":/i18n/gliden64_" + languageCode + ".qm"))
+    {
+        QCoreApplication::installTranslator(pluginTranslator);
+        this->ui_PluginTranslator = pluginTranslator;
+    }
+    else
+    {
+        delete pluginTranslator;
+    }
+
+    // translations which are not part of the files managed by lupdate,
+    // i.e Qt's standard buttons and missing third party plugin strings,
+    // these are installed last so that they have the highest priority
+    QTranslator* extraTranslator = new QTranslator(this);
+    if (extraTranslator->load(":/i18n/rmg_extra_" + localeName + ".qm"))
+    {
+        QCoreApplication::installTranslator(extraTranslator);
+        this->ui_ExtraTranslator = extraTranslator;
+    }
+    else
+    {
+        delete extraTranslator;
+    }
+}
+
+void MainWindow::retranslateUI(void)
+{
+    // update texts which come from the UI file
+    this->retranslateUi(this);
+
+    this->ui_WindowTitle = this->getWindowTitle();
+
+    // when emulation is running, the window title
+    // also contains the name of the ROM
+    if (this->emulationThread != nullptr &&
+        this->emulationThread->isRunning())
+    {
+        CoreRomSettings settings;
+        CoreGetCurrentRomSettings(settings);
+
+        if (!settings.GoodName.empty())
+        {
+            QString goodName = QString::fromStdString(settings.GoodName);
+            if (goodName.endsWith("(unknown rom)") ||
+                goodName.endsWith("(unknown disk)"))
+            {
+                std::filesystem::path romPath;
+                if (CoreGetRomPath(romPath))
+                {
+                    goodName = QString::fromStdString(romPath.filename().string());
+                }
+            }
+
+            this->setWindowTitle(goodName + QString(" - ") + this->ui_WindowTitle);
+        }
+    }
+    else
+    {
+        this->setWindowTitle(this->ui_WindowTitle);
+    }
+
+    // update the save state slot actions,
+    // their texts are generated at runtime
+    for (int i = 0; i < this->ui_SlotActions.size(); i++)
+    {
+        this->ui_SlotActions[i]->setText(this->getSaveStateSlotText(this->ui_SlotActions[i], i));
+    }
+
+    // update the ROM browser,
+    // its texts are generated at runtime
+    if (this->ui_Widget_RomBrowser != nullptr)
+    {
+        this->ui_Widget_RomBrowser->RetranslateUI();
+    }
+}
+
 QString MainWindow::getWindowTitle(void)
 {
     const QDate currentDate = QDateTime::currentDateTime().date();
@@ -525,7 +708,7 @@ void MainWindow::showErrorMessage(QString text, QString details, bool force)
 
     QMessageBox* msgBox = new QMessageBox(this);
     msgBox->setIcon(QMessageBox::Icon::Critical);
-    msgBox->setWindowTitle("Error");
+    msgBox->setWindowTitle(tr("Error"));
     msgBox->setText(text);
     msgBox->setDetailedText(details);
     msgBox->addButton(QMessageBox::Ok);
@@ -739,14 +922,14 @@ void MainWindow::launchEmulationThread(QString cartRom, QString diskRom, bool re
 #ifdef NETPLAY
     if (this->netplaySessionDialog != nullptr && !netplay)
     {
-        this->showErrorMessage("EmulationThread::run Failed", "Cannot start emulation when netplay session is active");
+        this->showErrorMessage(tr("EmulationThread::run Failed"), tr("Cannot start emulation when netplay session is active"));
         return;
     }
 #endif // NETPLAY
 
     if (!dragdrop && this->emulationThread->isRunning())
     {
-        this->showErrorMessage("EmulationThread::run Failed", "Cannot start emulation when emulation is already running or being started");
+        this->showErrorMessage(tr("EmulationThread::run Failed"), tr("Cannot start emulation when emulation is already running or being started"));
         return;
     }
 
@@ -1034,7 +1217,7 @@ QString MainWindow::getSaveStateSlotText(QAction* action, int slot)
     QString filePath;
 
     // base text
-    saveStateSlotText = "Slot " + QString::number(slot);
+    saveStateSlotText = tr("Slot %1").arg(slot);
 
     // add date and time text when it isnt empty
     dateTimeText = this->getSaveStateSlotDateTimeText(action);
@@ -1494,8 +1677,8 @@ void MainWindow::on_EventFilter_FileDropped(QDropEvent *event)
     if (inEmulation && confirmDragDrop)
     {
         confirmDragDrop = false;
-        bool ret = QtMessageBox::Question(this, "Are you sure you want to launch the drag & dropped ROM?", 
-                                                "Don't ask for confirmation again", confirmDragDrop);
+        bool ret = QtMessageBox::Question(this, tr("Are you sure you want to launch the drag & dropped ROM?"), 
+                                                tr("Don't ask for confirmation again"), confirmDragDrop);
         if (!ret)
         {
             return;
@@ -1560,7 +1743,7 @@ void MainWindow::on_networkAccessManager_Finished(QNetworkReply* reply)
     {
         if (!this->ui_SilentUpdateCheck)
         {
-            this->showErrorMessage("Failed to check for updates", reply->errorString());
+            this->showErrorMessage(tr("Failed to check for updates"), reply->errorString());
         }
         reply->deleteLater();
         return;
@@ -1579,7 +1762,7 @@ void MainWindow::on_networkAccessManager_Finished(QNetworkReply* reply)
     {
         if (!this->ui_SilentUpdateCheck)
         {
-            Utilities::QtMessageBox::Info(this, "You're already on the latest version");
+            Utilities::QtMessageBox::Info(this, tr("You're already on the latest version"));
         }
         return;
     }
@@ -1624,7 +1807,7 @@ void MainWindow::on_Action_System_OpenRom(void)
         this->on_Action_System_Pause();
     }
 
-    QString romFile = QFileDialog::getOpenFileName(this, tr("Open N64 ROM or 64DD Disk"), "", "N64 ROMs & Disks (*.n64 *.z64 *.v64 *.ndd *.d64 *.zip *.7z)");
+    QString romFile = QFileDialog::getOpenFileName(this, tr("Open N64 ROM or 64DD Disk"), "", tr("N64 ROMs & Disks (*.n64 *.z64 *.v64 *.ndd *.d64 *.zip *.7z)"));
     if (romFile.isEmpty())
     {
         if (isRunning && !isPaused)
@@ -1652,7 +1835,7 @@ void MainWindow::on_Action_System_OpenCombo(void)
         this->on_Action_System_Pause();
     }
 
-    QString cartRom = QFileDialog::getOpenFileName(this, tr("Open N64 ROM"), "", "N64 ROMs (*.n64 *.z64 *.v64 *.zip *.7z)");
+    QString cartRom = QFileDialog::getOpenFileName(this, tr("Open N64 ROM"), "", tr("N64 ROMs (*.n64 *.z64 *.v64 *.zip *.7z)"));
     if (cartRom.isEmpty())
     {
         if (isRunning && !isPaused)
@@ -1663,7 +1846,7 @@ void MainWindow::on_Action_System_OpenCombo(void)
     }
 
 
-    QString diskRom = QFileDialog::getOpenFileName(this, tr("Open 64DD Disk"), "", "N64DD Disk Image (*.ndd *.d64 *.zip *.7z)");
+    QString diskRom = QFileDialog::getOpenFileName(this, tr("Open 64DD Disk"), "", tr("N64DD Disk Image (*.ndd *.d64 *.zip *.7z)"));
     if (diskRom.isEmpty())
     {
         if (isRunning && !isPaused)
@@ -1788,7 +1971,7 @@ void MainWindow::on_Action_System_SaveState(void)
     }
     else
     {
-        OnScreenDisplaySetMessage("Saved state to slot: " + std::to_string(CoreGetSaveStateSlot()));
+        OnScreenDisplaySetMessage(tr("Saved state to slot: %1").arg(CoreGetSaveStateSlot()).toStdString());
     }
 }
 
@@ -1818,7 +2001,7 @@ void MainWindow::on_Action_System_SaveAs(void)
         }
         else
         {
-            OnScreenDisplaySetMessage("Saved state to: " + QDir::toNativeSeparators(fileName).toStdString());
+            OnScreenDisplaySetMessage(tr("Saved state to: %1").arg(QDir::toNativeSeparators(fileName)).toStdString());
         }
     }
 
@@ -1839,7 +2022,7 @@ void MainWindow::on_Action_System_LoadState(void)
     }
     else
     {
-        OnScreenDisplaySetMessage("State loaded from slot: " + std::to_string(CoreGetSaveStateSlot()));
+        OnScreenDisplaySetMessage(tr("State loaded from slot: %1").arg(CoreGetSaveStateSlot()).toStdString());
     }
 }
 
@@ -1867,7 +2050,7 @@ void MainWindow::on_Action_System_Load(void)
         }
         else
         {
-            OnScreenDisplaySetMessage("State loaded from: " + QDir::toNativeSeparators(fileName).toStdString());
+            OnScreenDisplaySetMessage(tr("State loaded from: %1").arg(QDir::toNativeSeparators(fileName)).toStdString());
         }
     }
 
@@ -1952,6 +2135,14 @@ void MainWindow::on_Action_Settings_Settings(void)
 
     Dialog::SettingsDialog dialog(this);
     dialog.exec();
+
+    // apply the language setting when it has changed,
+    // installing the translator will retranslate the UI
+    const QString language = QString::fromStdString(CoreSettingsGetStringValue(SettingsID::GUI_Language));
+    if (language != this->ui_Language)
+    {
+        this->configureLanguage();
+    }
 
     // reload UI,
     // because we need to keep Settings -> {type}
@@ -2212,11 +2403,11 @@ void MainWindow::on_RomBrowser_PlayGameWith(CoreRomType type, QString file)
     if (type == CoreRomType::Cartridge)
     { // cartridge
         mainRom = file;
-        otherRom = QFileDialog::getOpenFileName(this, tr("Open 64DD Disk"), "", "N64DD Disk Image (*.ndd *.d64 *.zip *.7z)");
+        otherRom = QFileDialog::getOpenFileName(this, tr("Open 64DD Disk"), "", tr("N64DD Disk Image (*.ndd *.d64 *.zip *.7z)"));
     }
     else
     { // disk
-        mainRom = QFileDialog::getOpenFileName(this, tr("Open N64 ROM"), "", "N64 ROMs (*.n64 *.z64 *.v64 *.zip *.7z)");
+        mainRom = QFileDialog::getOpenFileName(this, tr("Open N64 ROM"), "", tr("N64 ROMs (*.n64 *.z64 *.v64 *.zip *.7z)"));
         otherRom = file;
     }
 
@@ -2763,21 +2954,21 @@ void MainWindow::on_Core_StateCallback(CoreStateCallbackType type, int value)
         } break;
         case CoreStateCallbackType::SpeedFactor:
         {
-            OnScreenDisplaySetMessage("Playback speed: " + std::to_string(value) + "%");
+            OnScreenDisplaySetMessage(tr("Playback speed: %1%").arg(value).toStdString());
         } break;
         case CoreStateCallbackType::AudioVolume:
         {
-            OnScreenDisplaySetMessage("Volume: " + std::to_string(value) + "%");
+            OnScreenDisplaySetMessage(tr("Volume: %1%").arg(value).toStdString());
         } break;
         case CoreStateCallbackType::AudioMute:
         {
             if (value == 0)
             {
-                OnScreenDisplaySetMessage("Volume unmuted");
+                OnScreenDisplaySetMessage(tr("Volume unmuted").toStdString());
             }
             else
             {
-                OnScreenDisplaySetMessage("Volume muted");
+                OnScreenDisplaySetMessage(tr("Volume muted").toStdString());
             }
         } break;
         case CoreStateCallbackType::SaveStateLoaded:
@@ -2805,11 +2996,11 @@ void MainWindow::on_Core_StateCallback(CoreStateCallbackType type, int value)
             }
             else if (value == 0)
             {
-                OnScreenDisplaySetMessage("Failed to load save state.");
+                OnScreenDisplaySetMessage(tr("Failed to load save state.").toStdString());
             }
             else if (!this->ui_ManuallyLoadedState)
             {
-                OnScreenDisplaySetMessage("Loaded save state.");
+                OnScreenDisplaySetMessage(tr("Loaded save state.").toStdString());
             }
 
             this->ui_ManuallyLoadedState = false;
@@ -2818,11 +3009,11 @@ void MainWindow::on_Core_StateCallback(CoreStateCallbackType type, int value)
         {
             if (value == 0)
             {
-                OnScreenDisplaySetMessage("Failed to save state.");
+                OnScreenDisplaySetMessage(tr("Failed to save state.").toStdString());
             }
             else if (!this->ui_ManuallySavedState)
             {
-                OnScreenDisplaySetMessage("Saved state.");
+                OnScreenDisplaySetMessage(tr("Saved state.").toStdString());
             }
 
             // refresh savestate slot times in 1 second,
@@ -2840,11 +3031,11 @@ void MainWindow::on_Core_StateCallback(CoreStateCallbackType type, int value)
         {
             if (value == 0)
             {
-                OnScreenDisplaySetMessage("Failed to capture screenshot.");
+                OnScreenDisplaySetMessage(tr("Failed to capture screenshot.").toStdString());
             }
             else
             {
-                OnScreenDisplaySetMessage("Captured screenshot.");
+                OnScreenDisplaySetMessage(tr("Captured screenshot.").toStdString());
             }
         } break;
     }

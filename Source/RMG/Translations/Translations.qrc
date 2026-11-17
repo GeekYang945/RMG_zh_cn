@@ -1,0 +1,12 @@
+<RCC>
+<qresource prefix="/i18n">
+  <file alias="gliden64_de.qm">../../3rdParty/mupen64plus-video-GLideN64/translations/release/gliden64_de.qm</file>
+  <file alias="gliden64_es.qm">../../3rdParty/mupen64plus-video-GLideN64/translations/release/gliden64_es.qm</file>
+  <file alias="gliden64_fr.qm">../../3rdParty/mupen64plus-video-GLideN64/translations/release/gliden64_fr.qm</file>
+  <file alias="gliden64_it.qm">../../3rdParty/mupen64plus-video-GLideN64/translations/release/gliden64_it.qm</file>
+  <file alias="gliden64_ja.qm">../../3rdParty/mupen64plus-video-GLideN64/translations/release/gliden64_ja.qm</file>
+  <file alias="gliden64_pl.qm">../../3rdParty/mupen64plus-video-GLideN64/translations/release/gliden64_pl.qm</file>
+  <file alias="gliden64_pt_BR.qm">../../3rdParty/mupen64plus-video-GLideN64/translations/release/gliden64_pt_BR.qm</file>
+  <file alias="gliden64_zh.qm">../../3rdParty/mupen64plus-video-GLideN64/translations/release/gliden64_zh.qm</file>
+</qresource>
+</RCC>
