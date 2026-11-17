@@ -104,7 +104,7 @@ RomBrowserWidget::RomBrowserWidget(QWidget *parent) : QWidget(parent)
     this->listViewWidget->setFrameStyle(QFrame::NoFrame);
     this->listViewWidget->setItemDelegate(new NoFocusDelegate(this));
     this->listViewWidget->setWordWrap(false);
-    this->listViewWidget->setShowGrid(false);
+    this->listViewWidget->setShowGrid(true);
     this->listViewWidget->setSortingEnabled(true);
     this->listViewWidget->setEditTriggers(QAbstractItemView::NoEditTriggers);
     this->listViewWidget->setSelectionBehavior(QTableView::SelectRows);
@@ -115,7 +115,7 @@ RomBrowserWidget::RomBrowserWidget(QWidget *parent) : QWidget(parent)
     this->listViewWidget->horizontalHeader()->setSectionsMovable(true);
     this->listViewWidget->horizontalHeader()->setFirstSectionMovable(true);
     this->listViewWidget->horizontalHeader()->setSectionResizeMode(QHeaderView::Interactive);
-    this->listViewWidget->horizontalHeader()->setDefaultAlignment(Qt::AlignLeft);
+    this->listViewWidget->horizontalHeader()->setDefaultAlignment(Qt::AlignCenter);
     this->listViewWidget->horizontalHeader()->setSortIndicatorShown(false);
     this->listViewWidget->horizontalHeader()->setHighlightSections(false);
     this->listViewWidget->horizontalHeader()->setContextMenuPolicy(Qt::ContextMenuPolicy::CustomContextMenu);
