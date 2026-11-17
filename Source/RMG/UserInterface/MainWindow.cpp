@@ -249,6 +249,49 @@ void MainWindow::changeEvent(QEvent *event)
     QMainWindow::changeEvent(event);
 }
 
+void MainWindow::showEvent(QShowEvent *event)
+{
+    QMainWindow::showEvent(event);
+
+    // center the window on the screen
+    // when it's shown for the first time
+    if (!this->ui_CenteredOnce && !this->isMaximized() && !this->isFullScreen())
+    {
+        this->ui_CenteredOnce = true;
+        this->centerWindow();
+    }
+}
+
+void MainWindow::centerWindow(void)
+{
+    QScreen* screen = this->screen();
+    if (screen == nullptr)
+    {
+        screen = QGuiApplication::primaryScreen();
+    }
+    if (screen == nullptr)
+    {
+        return;
+    }
+
+    const QRect available = screen->availableGeometry();
+
+    // clamp the window size so that it fits on the screen,
+    // this can happen when a game requests a larger resolution
+    const QSize frameExtra = this->frameGeometry().size() - this->size();
+    const QSize maxSize    = available.size() - frameExtra;
+    if (this->size().width()  > maxSize.width()  ||
+        this->size().height() > maxSize.height())
+    {
+        this->resize(this->size().boundedTo(maxSize));
+    }
+
+    // center the window on the available screen area
+    QRect frame = this->frameGeometry();
+    frame.moveCenter(available.center());
+    this->move(frame.topLeft());
+}
+
 void MainWindow::initializeUI(bool launchROM)
 {
     this->setupUi(this);
@@ -2759,6 +2802,10 @@ void MainWindow::on_VidExt_ResizeWindow(int width, int height)
     }
 
     this->resize(width, height);
+
+    // center the window and make sure it fits on the screen,
+    // the game can request a resolution larger than the screen
+    this->centerWindow();
 
     // we've force set the size once,
     // we can safely disable it now

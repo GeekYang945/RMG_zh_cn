@@ -133,6 +133,7 @@ class MainWindow : public QMainWindow, private Ui::MainWindow
 
     void closeEvent(QCloseEvent *) Q_DECL_OVERRIDE;
     void changeEvent(QEvent *) Q_DECL_OVERRIDE;
+    void showEvent(QShowEvent *) Q_DECL_OVERRIDE;
 
     void initializeUI(bool launchROM);
 
@@ -141,6 +142,7 @@ class MainWindow : public QMainWindow, private Ui::MainWindow
     void configureLanguage(void);
 
     void retranslateUI(void);
+    void centerWindow(void);
 
     QString getWindowTitle(void);
 
